@@ -1,4 +1,5 @@
 var express = require('express');
+var amplify = require('amplify');
 var q = require('q');
 var promise = require('promise');
 var router = express.Router();
@@ -26,7 +27,7 @@ router.route('/totalIncidents')
   var options = {
     rejectUnauthorized: false, 
     hostname: 'monitor.insitesecurity.nl',
-    path: '/scans/1020',
+    path: '/scans/1299',
     port: 443,
     method: 'GET',
     headers: {
@@ -120,15 +121,16 @@ router.route('/totalIncidents')
    //   console.log('incidenten: ' +incidents);
       res.send({
         succes: true,
-        message: json.dashboard.vulnerabilities.history,
-        dates: dates,
-        critical: critical,
-        high: high,
-        med: medium,
-        low: low,
-        inf: informational,
-        amount: amount,
-        plugins: plugins,
+        // message: json.dashboard.vulnerabilities.history,
+        // dates: dates,
+        // critical: critical,
+        // high: high,
+        // med: medium,
+        // low: low,
+        // inf: informational,
+        // amount: amount,
+        // plugins: plugins,
+        msg: json
       });
     })
   });
@@ -227,7 +229,7 @@ router.route('/hostHistory')
   var options = {
     rejectUnauthorized: false, 
     hostname: 'monitor.insitesecurity.nl',
-    path: '/scans/1020/plugins/88906',
+    path: '/scans/1299/plugins/88906',
     port: 443,
     method: 'GET',
     headers: {
@@ -295,58 +297,62 @@ router.route('/hostHistory')
 router.route('/scanHosts')
 
 .get(function(req, res, next) { 
-
-  var getVulnerabilities = function (options) {
-      var deferred = q.defer();
-      http.request({url: options}, function(error, res, body) {
-      if(!error && res.statusCode == 200) {
-     //   console.log(body);
-        deferred.resolve(body);
-      } else{
-          deferred.reject(new Error(error));
-        }
-      })
-      return deferred.promise;
-    }
-    
-
+  
   var accessKey4 = '71c038febdad47d21ce268d5c43e05c9081f59e0d2c6efd3745ed08b13bff88d';
   var secretKey4 = '9e88e79329678436bcf54281031f1236ca8d74ecb8166bbc4ff7f3937a8c9bfa';
 
   var y;
   var z;
   var histReq;
-
-  var xApi4  = "accessKey=" + accessKey4 + "; secretKey=" +secretKey4;
- 
+  
+  console.log('hosts: '+hostid);
+  console.log('history: '+hisId);
+  
+  var xApi4  = 'accessKey=' + accessKey4 + '; secretKey=' +secretKey4;
+  
   for(y = 0 ; y <hostid.length ; y++) {
     for(z = 0 ; z <hisId.length ; z++){
-       var options = {
-        rejectUnauthorized: false, 
-        hostname: 'http://monitor.insitesecurity.nl/scans/1020/hosts/'+hostid[y]+'?history_id='+hisId[z],
-        port: 443,
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-ApiKeys': xApi4
+      var req = amplify.request.define('nessus-data', 'ajax', {
+        url: 'https://monitor.insitesecurity.nl/scans/1299/hosts/'+hostid[y]+'?history_id='+hisId[z],
+        dataType: 'json',
+        type: 'GET',
+          beforeSend: function(xhr) {
+            xhr.setRequestHeader('X-ApiKeys', xApi4);
+          }
+      });
+    //  console.log(req);
+
+         var histReq = https.request(req, (histRes) => {
+        if((hostRes.statusCode==200) || (hostRes.statusCode == 201)) {
+          
+        } else {
+          res.status(500);
+          res.send({
+            success: false,
+            message: 'Something went wrong at the connection'
+          });
         }
-      };
- //     console.log(options);
+        histRes.setEncoding('utf8');
+        var response4 = '';
 
-  //    var stringed = JSON.stringify(options);
- //     console.log('stringed: '+stringed);
 
-      getVulnerabilities(options)
-      .then(function(options) {
-        console.log('stringed');
-        res.send(200);
-      })
-      .catch(function(error) {
-    //  console.log('err', error);
-        res.json({error: error.message});
-      })
+        histRes.on('data', (chunk) => {
+          response4 += chunk;
+        });
+
+
+        histRes.on('end', () => {
+          var json = JSON.parse(response4);
+
+          res.send({
+            succes: true,
+            hosts: json                
+          });
+        })
+      });
+      histReq.write(xApi4);
+      histReq.end();
     }
-  } 
-  
+  }
 })
 module.exports = router;
